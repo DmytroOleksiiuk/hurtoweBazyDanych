@@ -16,17 +16,16 @@ from sklearn.metrics import r2_score, mean_absolute_error
 st.set_page_config(
     page_title="Wine Analytics & Food Pairings",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 st.title("🍷 Wine Analytics & Food Pairings")
 st.markdown(
-    "Aplikacja do eksploracji jakości czerwonych win oraz "
-    "parowania win z jedzeniem."
+    "Aplikacja do eksploracji jakości czerwonych win oraz parowania win z jedzeniem."
 )
 
 # ---------------------------------------------------------
-# Stabilne ścieżki (Twoja struktura: CSV w root repo)
+# Stabilne ścieżki (CSV w root repo)
 # ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WINE_QUALITY_PATH = os.path.join(BASE_DIR, "winequality-red.csv")
@@ -51,7 +50,16 @@ def load_wine_quality(path: str = WINE_QUALITY_PATH) -> pd.DataFrame:
 def load_wine_food_pairings(path: str = PAIRINGS_PATH) -> pd.DataFrame:
     df = pd.read_csv(path)
 
-    for col in ["wine_type", "wine_category", "food_item", "food_category", "cuisine", "quality_label", "description"]:
+    # lekkie czyszczenie stringów
+    for col in [
+        "wine_type",
+        "wine_category",
+        "food_item",
+        "food_category",
+        "cuisine",
+        "quality_label",
+        "description",
+    ]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
@@ -64,41 +72,41 @@ def load_wine_food_pairings(path: str = PAIRINGS_PATH) -> pd.DataFrame:
 # ---------------------------------------------------------
 # Podstawowa eksploracja danych (EDA)
 # ---------------------------------------------------------
-def basic_eda(df: pd.DataFrame, title: str):
+def basic_eda(df: pd.DataFrame, title: str) -> None:
     st.subheader(title)
 
+    # head()
     st.markdown("### Podgląd danych (head)")
     st.dataframe(df.head(), use_container_width=True)
 
+    # liczba wierszy/kolumn
     st.markdown("### Rozmiar danych")
     st.write(f"**Wiersze:** {df.shape[0]}  |  **Kolumny:** {df.shape[1]}")
 
+    # typy danych
     st.markdown("### Typy danych")
-    dtypes_df = pd.DataFrame({
-        "kolumna": df.columns,
-        "typ": [str(t) for t in df.dtypes.values]
-    })
+    dtypes_df = pd.DataFrame({"kolumna": df.columns, "typ": [str(t) for t in df.dtypes.values]})
     st.dataframe(dtypes_df, hide_index=True, use_container_width=True)
 
+    # brakujące wartości
     st.markdown("### Brakujące wartości")
     missing = df.isna().sum().sort_values(ascending=False)
-    missing_df = pd.DataFrame({
-        "kolumna": missing.index,
-        "brakujące": missing.values,
-        "procent": (missing.values / len(df) * 100).round(2)
-    })
+    missing_df = pd.DataFrame(
+        {
+            "kolumna": missing.index,
+            "brakujące": missing.values,
+            "procent": (missing.values / len(df) * 100).round(2),
+        }
+    )
 
     if int(missing.sum()) == 0:
         st.success("✅ Brak brakujących wartości w datasetcie.")
         st.dataframe(missing_df, hide_index=True, use_container_width=True)
     else:
         st.warning(f"⚠️ Wykryto brakujące wartości: **{int(missing.sum())}**")
-        st.dataframe(
-            missing_df[missing_df["brakujące"] > 0],
-            hide_index=True,
-            use_container_width=True
-        )
+        st.dataframe(missing_df[missing_df["brakujące"] > 0], hide_index=True, use_container_width=True)
 
+    # duplikaty
     st.markdown("### Duplikaty")
     dup_count = int(df.duplicated().sum())
     if dup_count == 0:
@@ -109,11 +117,9 @@ def basic_eda(df: pd.DataFrame, title: str):
             st.dataframe(df[df.duplicated(keep=False)].head(50), use_container_width=True)
 
 
-# ---------------------------------------------------------
-# Szybkie statystyki (po filtrach)
-# ---------------------------------------------------------
-def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie statystyki"):
+def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie statystyki") -> None:
     st.markdown(f"### {title}")
+
     if df.empty:
         st.info("Brak danych po filtrach – brak statystyk.")
         return
@@ -123,18 +129,20 @@ def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie
         st.info("Brak kolumn numerycznych do statystyk.")
         return
 
-    stats = pd.DataFrame({
-        "kolumna": cols_to_use,
-        "średnia": [df[c].mean() for c in cols_to_use],
-        "mediana": [df[c].median() for c in cols_to_use],
-        "min": [df[c].min() for c in cols_to_use],
-        "max": [df[c].max() for c in cols_to_use],
-    })
+    stats = pd.DataFrame(
+        {
+            "kolumna": cols_to_use,
+            "średnia": [df[c].mean() for c in cols_to_use],
+            "mediana": [df[c].median() for c in cols_to_use],
+            "min": [df[c].min() for c in cols_to_use],
+            "max": [df[c].max() for c in cols_to_use],
+        }
+    )
     st.dataframe(stats, hide_index=True, use_container_width=True)
 
 
 # ---------------------------------------------------------
-# Próba wczytania danych + komunikaty błędów
+# Wczytanie danych + obsługa błędów
 # ---------------------------------------------------------
 wine_quality_df, pairings_df = None, None
 wine_quality_error, pairings_error = None, None
@@ -159,8 +167,8 @@ module = st.sidebar.radio(
         "Eksploracja danych",
         "Analiza jakości wina",
         "Parowanie wina z jedzeniem",
-        "Najlepsze dopasowania (kraj + jedzenie)"
-    ]
+        "Najlepsze dopasowania (kraj + jedzenie)",
+    ],
 )
 
 # =========================================================
@@ -203,7 +211,7 @@ elif module == "Analiza jakości wina":
     df = wine_quality_df.copy()
 
     # -------------------------
-    # Podgląd danych
+    # Podgląd danych + info
     # -------------------------
     st.markdown("### Podgląd danych")
     st.dataframe(df.head(), use_container_width=True)
@@ -220,7 +228,7 @@ elif module == "Analiza jakości wina":
             st.write(df.describe().T)
 
     # -------------------------
-    # Filtrowanie: quality + wybrana cecha (dwa suwaki)
+    # Filtrowanie: quality + wybrana cecha (suwaki)
     # -------------------------
     st.markdown("### Filtrowanie: quality + wybrana cecha")
 
@@ -232,7 +240,8 @@ elif module == "Analiza jakości wina":
         min_value=min_q,
         max_value=max_q,
         value=(min_q, max_q),
-        step=1
+        step=1,
+        key="quality_range",
     )
 
     feature_cols = [c for c in df.columns if c != "quality"]
@@ -242,7 +251,7 @@ elif module == "Analiza jakości wina":
         "Wybierz cechę do filtrowania:",
         feature_cols,
         index=feature_cols.index(default_feature),
-        key="filter_feature"
+        key="chosen_feature",
     )
 
     f_min = float(df[chosen_feature].min())
@@ -253,12 +262,14 @@ elif module == "Analiza jakości wina":
         min_value=f_min,
         max_value=f_max,
         value=(f_min, f_max),
-        key="filter_feature_range"
+        key="feature_range",
     )
 
     filtered = df[
-        (df["quality"] >= quality_range[0]) & (df["quality"] <= quality_range[1]) &
-        (df[chosen_feature] >= feature_range[0]) & (df[chosen_feature] <= feature_range[1])
+        (df["quality"] >= quality_range[0])
+        & (df["quality"] <= quality_range[1])
+        & (df[chosen_feature] >= feature_range[0])
+        & (df[chosen_feature] <= feature_range[1])
     ]
 
     st.write(f"✅ Rekordy po filtrach: **{filtered.shape[0]}** / {df.shape[0]}")
@@ -266,11 +277,18 @@ elif module == "Analiza jakości wina":
     st.markdown("### Wyniki po filtrach")
     st.dataframe(filtered, use_container_width=True)
 
-    quick_stats(
-        filtered,
-        numeric_cols=["quality", chosen_feature],
-        title="Szybkie wnioski: quality + wybrana cecha"
-    )
+    quick_stats(filtered, numeric_cols=["quality", chosen_feature], title="Szybkie wnioski: quality + wybrana cecha")
+
+    # -------------------------
+    # Rozkład jakości
+    # -------------------------
+    st.markdown("### Rozkład jakości wina")
+    fig, ax = plt.subplots()
+    ax.hist(df["quality"], bins=range(min_q, max_q + 2), edgecolor="black")
+    ax.set_xlabel("Jakość (quality)")
+    ax.set_ylabel("Liczba próbek")
+    ax.set_title("Histogram ocen jakości wina")
+    st.pyplot(fig)
 
     # =====================================================
     # Rozkłady i porównania (panel)
@@ -288,7 +306,7 @@ elif module == "Analiza jakości wina":
                 "Wybierz cechę do analizy rozkładu:",
                 feature_cols,
                 index=feature_cols.index(default_feature),
-                key="dist_feature"
+                key="dist_feature",
             )
 
         with c2:
@@ -296,9 +314,10 @@ elif module == "Analiza jakości wina":
                 "Tryb porównania (2 grupy jakości):",
                 options=["quality ≤ X vs quality > X", "quality = A vs quality = B"],
                 horizontal=True,
-                key="compare_mode"
+                key="compare_mode",
             )
 
+        # histogram
         st.markdown("### Histogram cechy")
         fig_h, ax_h = plt.subplots()
         ax_h.hist(filtered[dist_feature].dropna(), bins=30, edgecolor="black")
@@ -307,12 +326,14 @@ elif module == "Analiza jakości wina":
         ax_h.set_title(f"Histogram: {dist_feature}")
         st.pyplot(fig_h)
 
+        # boxplot
         st.markdown("### Boxplot cechy")
         fig_b, ax_b = plt.subplots()
         ax_b.boxplot(filtered[dist_feature].dropna(), vert=True, labels=[dist_feature])
         ax_b.set_title(f"Boxplot: {dist_feature}")
         st.pyplot(fig_b)
 
+        # porównanie
         st.markdown("### Porównanie rozkładów dla 2 grup jakości")
 
         if compare_mode == "quality ≤ X vs quality > X":
@@ -328,7 +349,7 @@ elif module == "Analiza jakości wina":
                     max_value=q_max - 1,
                     value=min(q_min + 1, q_max - 1),
                     step=1,
-                    key="threshold_x"
+                    key="threshold_x",
                 )
 
                 g1 = filtered[filtered["quality"] <= x][dist_feature].dropna()
@@ -352,13 +373,15 @@ elif module == "Analiza jakości wina":
                 ax_cb.set_ylabel(dist_feature)
                 st.pyplot(fig_cb)
 
-                comp_stats = pd.DataFrame({
-                    "grupa": [f"quality ≤ {x}", f"quality > {x}"],
-                    "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
-                    "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
-                    "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
-                    "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
-                })
+                comp_stats = pd.DataFrame(
+                    {
+                        "grupa": [f"quality ≤ {x}", f"quality > {x}"],
+                        "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
+                        "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
+                        "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
+                        "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
+                    }
+                )
                 st.markdown("#### Szybkie statystyki (porównanie)")
                 st.dataframe(comp_stats, hide_index=True, use_container_width=True)
 
@@ -372,8 +395,7 @@ elif module == "Analiza jakości wina":
                 with col_a:
                     q_a = st.selectbox("Wybierz jakość A:", qualities, index=0, key="qa")
                 with col_b:
-                    default_idx = 1 if len(qualities) > 1 else 0
-                    q_b = st.selectbox("Wybierz jakość B:", qualities, index=default_idx, key="qb")
+                    q_b = st.selectbox("Wybierz jakość B:", qualities, index=1 if len(qualities) > 1 else 0, key="qb")
 
                 if q_a == q_b:
                     st.warning("Wybierz dwie różne wartości jakości (A != B).")
@@ -399,13 +421,15 @@ elif module == "Analiza jakości wina":
                     ax_cb.set_ylabel(dist_feature)
                     st.pyplot(fig_cb)
 
-                    comp_stats = pd.DataFrame({
-                        "grupa": [f"quality = {q_a}", f"quality = {q_b}"],
-                        "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
-                        "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
-                        "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
-                        "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
-                    })
+                    comp_stats = pd.DataFrame(
+                        {
+                            "grupa": [f"quality = {q_a}", f"quality = {q_b}"],
+                            "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
+                            "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
+                            "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
+                            "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
+                        }
+                    )
                     st.markdown("#### Szybkie statystyki (porównanie)")
                     st.dataframe(comp_stats, hide_index=True, use_container_width=True)
 
@@ -413,7 +437,7 @@ elif module == "Analiza jakości wina":
     # INTERAKTYWNE WYKRESY 3D (PLOTLY)
     # =====================================================
     st.markdown("## 🧊 Interaktywne wykresy 3D – zależności między cechami")
-    st.caption("Możesz obracać, przybliżać i eksplorować punkty myszką.")
+    st.caption("Możesz obracać, przybliżać i eksplorować punkty myszką (Plotly).")
 
     if filtered.empty:
         st.warning("Brak danych po filtrach – nie mogę narysować wykresu 3D.")
@@ -421,33 +445,32 @@ elif module == "Analiza jakości wina":
         numeric_features = [c for c in df.columns if c != "quality"]
 
         c3d_1, c3d_2, c3d_3, c3d_4 = st.columns(4)
-
         with c3d_1:
             x_3d = st.selectbox(
                 "Oś X",
                 numeric_features,
                 index=numeric_features.index("alcohol") if "alcohol" in numeric_features else 0,
-                key="px3d_x"
+                key="px3d_x",
             )
         with c3d_2:
             y_3d = st.selectbox(
                 "Oś Y",
                 numeric_features,
                 index=numeric_features.index("volatile acidity") if "volatile acidity" in numeric_features else 1,
-                key="px3d_y"
+                key="px3d_y",
             )
         with c3d_3:
             z_3d = st.selectbox(
                 "Oś Z",
                 numeric_features,
                 index=numeric_features.index("sulphates") if "sulphates" in numeric_features else 2,
-                key="px3d_z"
+                key="px3d_z",
             )
         with c3d_4:
             color_3d = st.selectbox(
                 "Kolorowanie punktów",
                 ["quality"] + numeric_features,
-                key="px3d_color"
+                key="px3d_color",
             )
 
         plot_df = filtered[[x_3d, y_3d, z_3d, color_3d]].dropna()
@@ -471,22 +494,20 @@ elif module == "Analiza jakości wina":
     # -------------------------
     st.markdown("### Korelacje między cechami")
     corr = df.corr(numeric_only=True)
-
     fig_corr, ax_corr = plt.subplots(figsize=(10, 6))
     sns.heatmap(corr, annot=False, cmap="coolwarm", ax=ax_corr)
     ax_corr.set_title("Macierz korelacji")
     st.pyplot(fig_corr)
 
     # -------------------------
-    # Scatter: wybrana cecha vs jakość
+    # Scatter: cecha vs jakość
     # -------------------------
     st.markdown("### Zależność cechy od jakości")
-
     x_feature = st.selectbox(
         "Wybierz cechę (oś X):",
         feature_cols,
         index=feature_cols.index(default_feature),
-        key="scatter_feature"
+        key="scatter_feature",
     )
 
     fig_scatter, ax_scatter = plt.subplots()
@@ -497,64 +518,41 @@ elif module == "Analiza jakości wina":
     st.pyplot(fig_scatter)
 
     # -------------------------
-    # Prosty model predykcji jakości
+    # Model predykcji jakości (RandomForest)
     # -------------------------
     st.markdown("### 🤖 Prosty model predykcji jakości (RandomForest)")
 
     with st.expander("Parametry modelu i metryki"):
-        test_size = st.slider(
-            "Udział danych testowych",
-            min_value=0.1,
-            max_value=0.5,
-            value=0.2,
-            step=0.05
-        )
-        n_estimators = st.slider(
-            "Liczba drzew (n_estimators)",
-            min_value=50,
-            max_value=500,
-            value=200,
-            step=50
-        )
-        random_state = st.number_input(
-            "Random state",
-            min_value=0,
-            value=42,
-            step=1
-        )
+        test_size = st.slider("Udział danych testowych", 0.1, 0.5, 0.2, 0.05, key="test_size")
+        n_estimators = st.slider("Liczba drzew (n_estimators)", 50, 500, 200, 50, key="n_estimators")
+        random_state = st.number_input("Random state", min_value=0, value=42, step=1, key="rs")
 
         X = df.drop("quality", axis=1)
         y = df["quality"]
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=test_size,
-            random_state=random_state
+            X, y, test_size=float(test_size), random_state=int(random_state)
         )
 
-        model = RandomForestRegressor(
-            n_estimators=int(n_estimators),
-            random_state=random_state
-        )
+        model = RandomForestRegressor(n_estimators=int(n_estimators), random_state=int(random_state))
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
-
         r2 = r2_score(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
 
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            st.metric("R² na zbiorze testowym", f"{r2:.3f}")
-        with col_m2:
-            st.metric("MAE na zbiorze testowym", f"{mae:.3f}")
+        c_m1, c_m2 = st.columns(2)
+        with c_m1:
+            st.metric("R² (test)", f"{r2:.3f}")
+        with c_m2:
+            st.metric("MAE (test)", f"{mae:.3f}")
 
         importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
         st.markdown("**Ważność cech (feature importance):**")
         st.bar_chart(importances)
 
     # -------------------------
-    # Interaktywna predykcja dla użytkownika
+    # Predykcja dla użytkownika
     # -------------------------
     st.markdown("### 🔮 Predykcja jakości dla podanych parametrów")
 
@@ -570,11 +568,7 @@ elif module == "Analiza jakości wina":
             step = (max_val - min_val) / 100 if max_val > min_val else 0.01
 
             user_input[col_name] = col.slider(
-                col_name,
-                min_value=min_val,
-                max_value=max_val,
-                value=mean_val,
-                step=step
+                col_name, min_value=min_val, max_value=max_val, value=mean_val, step=step
             )
 
         submitted = st.form_submit_button("Oblicz przewidywaną jakość")
@@ -582,7 +576,7 @@ elif module == "Analiza jakości wina":
     if submitted:
         input_df = pd.DataFrame([user_input])
         pred_quality = model.predict(input_df)[0]
-        st.success(f"Przewidywana jakość wina: **{pred_quality:.2f}** (w skali jak w kolumnie `quality`)")
+        st.success(f"Przewidywana jakość wina: **{pred_quality:.2f}**")
 
 # =========================================================
 # 2. PAROWANIE WINA Z JEDZENIEM (wine_food_pairings.csv)
@@ -610,14 +604,17 @@ elif module == "Parowanie wina z jedzeniem":
             st.write(list(dfp.columns))
         with col2:
             if "wine_type" in dfp.columns:
-                st.write("wine_type:", dfp["wine_type"].unique()[:10])
+                st.write("wine_type:", dfp["wine_type"].dropna().unique()[:10])
             if "food_category" in dfp.columns:
-                st.write("food_category:", dfp["food_category"].unique()[:10])
+                st.write("food_category:", dfp["food_category"].dropna().unique()[:10])
             if "cuisine" in dfp.columns:
-                st.write("cuisine:", dfp["cuisine"].unique()[:10])
+                st.write("cuisine:", dfp["cuisine"].dropna().unique()[:10])
             if "quality_label" in dfp.columns:
-                st.write("quality_label:", dfp["quality_label"].unique())
+                st.write("quality_label:", dfp["quality_label"].dropna().unique())
 
+    # -------------------------
+    # Filtrowanie parowań
+    # -------------------------
     st.markdown("### Filtrowanie rekomendacji")
 
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
@@ -625,123 +622,121 @@ elif module == "Parowanie wina z jedzeniem":
     with col_f1:
         wine_type_sel = st.multiselect(
             "Typ wina (`wine_type`):",
-            options=sorted(dfp["wine_type"].dropna().unique()),
-            default=[]
+            options=sorted(dfp["wine_type"].dropna().unique()) if "wine_type" in dfp.columns else [],
+            default=[],
+            key="pair_wine_type",
         )
     with col_f2:
         food_cat_sel = st.multiselect(
             "Kategoria jedzenia (`food_category`):",
-            options=sorted(dfp["food_category"].dropna().unique()),
-            default=[]
+            options=sorted(dfp["food_category"].dropna().unique()) if "food_category" in dfp.columns else [],
+            default=[],
+            key="pair_food_cat",
         )
     with col_f3:
         cuisine_sel = st.multiselect(
             "Kuchnia (`cuisine`):",
-            options=sorted(dfp["cuisine"].dropna().unique()),
-            default=[]
+            options=sorted(dfp["cuisine"].dropna().unique()) if "cuisine" in dfp.columns else [],
+            default=[],
+            key="pair_cuisine",
         )
     with col_f4:
-        min_pair_quality = int(np.nanmin(dfp["pairing_quality"])) if "pairing_quality" in dfp.columns else 1
-        max_pair_quality = int(np.nanmax(dfp["pairing_quality"])) if "pairing_quality" in dfp.columns else 5
+        if "pairing_quality" in dfp.columns:
+            min_pair_quality = int(np.nanmin(dfp["pairing_quality"]))
+            max_pair_quality = int(np.nanmax(dfp["pairing_quality"]))
+        else:
+            min_pair_quality, max_pair_quality = 1, 5
+
         pairing_quality_sel = st.slider(
             "Minimalna ocena parowania (`pairing_quality`):",
             min_value=min_pair_quality,
             max_value=max_pair_quality,
             value=min_pair_quality,
-            step=1
+            step=1,
+            key="pair_min_quality",
         )
 
     filt = dfp.copy()
-    if wine_type_sel:
+
+    if wine_type_sel and "wine_type" in filt.columns:
         filt = filt[filt["wine_type"].isin(wine_type_sel)]
-    if food_cat_sel:
+    if food_cat_sel and "food_category" in filt.columns:
         filt = filt[filt["food_category"].isin(food_cat_sel)]
-    if cuisine_sel:
+    if cuisine_sel and "cuisine" in filt.columns:
         filt = filt[filt["cuisine"].isin(cuisine_sel)]
     if "pairing_quality" in filt.columns:
         filt = filt[filt["pairing_quality"].fillna(-999) >= pairing_quality_sel]
 
-    st.markdown(f"Znaleziono **{filt.shape[0]}** dopasowań.")
     st.write(f"✅ Rekordy po filtrach: **{filt.shape[0]}** / {dfp.shape[0]}")
 
+    st.markdown("### Wyniki po filtrach")
+    show_cols = [
+        c
+        for c in [
+            "wine_type",
+            "wine_category",
+            "food_item",
+            "food_category",
+            "cuisine",
+            "pairing_quality",
+            "quality_label",
+            "description",
+        ]
+        if c in filt.columns
+    ]
+
     if "pairing_quality" in filt.columns:
-        stats_df = pd.DataFrame({
-            "metryka": ["średnia", "mediana", "min", "max"],
-            "pairing_quality": [
-                filt["pairing_quality"].mean(),
-                filt["pairing_quality"].median(),
-                filt["pairing_quality"].min(),
-                filt["pairing_quality"].max(),
-            ]
-        })
+        filt_view = filt[show_cols].sort_values(by="pairing_quality", ascending=False)
+    else:
+        filt_view = filt[show_cols]
+
+    st.dataframe(filt_view, use_container_width=True)
+
+    # 2–3 proste statystyki (tu: pairing_quality)
+    if "pairing_quality" in filt.columns:
+        stats_df = pd.DataFrame(
+            {
+                "metryka": ["średnia", "mediana", "min", "max"],
+                "pairing_quality": [
+                    filt["pairing_quality"].mean(),
+                    filt["pairing_quality"].median(),
+                    filt["pairing_quality"].min(),
+                    filt["pairing_quality"].max(),
+                ],
+            }
+        )
         st.markdown("### 📊 Szybkie statystyki (pairing_quality)")
         st.dataframe(stats_df, hide_index=True, use_container_width=True)
 
-        if "wine_type" in filt.columns and not filt.empty:
-            st.markdown("### 🍷 Top wine_type wg średniej pairing_quality (po filtrach)")
-            mean_by_wine = (
-                filt.groupby("wine_type")["pairing_quality"]
-                .mean()
-                .sort_values(ascending=False)
-                .head(10)
-                .reset_index()
-                .rename(columns={"pairing_quality": "średnia_pairing_quality"})
-            )
-            st.dataframe(mean_by_wine, hide_index=True, use_container_width=True)
-
-    st.dataframe(
-        filt[
-            [c for c in [
-                "wine_type",
-                "wine_category",
-                "food_item",
-                "food_category",
-                "cuisine",
-                "pairing_quality",
-                "quality_label",
-                "description"
-            ] if c in filt.columns]
-        ].sort_values(by="pairing_quality", ascending=False) if "pairing_quality" in filt.columns else filt,
-        use_container_width=True
-    )
-
+    # Podsumowania
     st.markdown("### Podsumowanie jakości parowań")
-
     col_s1, col_s2 = st.columns(2)
-
     with col_s1:
         if "quality_label" in dfp.columns:
             st.write("**Liczba parowań per etykieta jakości (`quality_label`):**")
             st.bar_chart(dfp["quality_label"].value_counts())
-
     with col_s2:
         if "pairing_quality" in dfp.columns and "wine_type" in dfp.columns:
             st.write("**Średnia ocena parowania per typ wina (`wine_type`):**")
-            mean_quality_by_wine = (
-                dfp.groupby("wine_type")["pairing_quality"]
-                .mean()
-                .sort_values(ascending=False)
-            )
+            mean_quality_by_wine = dfp.groupby("wine_type")["pairing_quality"].mean().sort_values(ascending=False)
             st.bar_chart(mean_quality_by_wine)
 
+    # Szybka rekomendacja po nazwie dania
     st.markdown("### 🔍 Znajdź rekomendacje dla konkretnego dania")
 
     col_r1, col_r2 = st.columns(2)
-
     with col_r1:
         chosen_food = st.text_input(
             "Podaj nazwę dania (część nazwy z kolumny `food_item`):",
-            value=""
+            value="",
+            key="pair_food_search",
         )
     with col_r2:
         cuisine_options = ["(dowolna)"] + sorted(dfp["cuisine"].dropna().unique().tolist()) if "cuisine" in dfp.columns else ["(dowolna)"]
-        chosen_cuisine = st.selectbox(
-            "Wybierz kuchnię (opcjonalnie):",
-            options=cuisine_options
-        )
+        chosen_cuisine = st.selectbox("Wybierz kuchnię (opcjonalnie):", options=cuisine_options, key="pair_food_cuisine")
 
     if chosen_food.strip():
-        rec = dfp[dfp["food_item"].str.contains(chosen_food, case=False, na=False)]
+        rec = dfp[dfp["food_item"].astype(str).str.contains(chosen_food, case=False, na=False)] if "food_item" in dfp.columns else dfp.iloc[0:0]
         if chosen_cuisine != "(dowolna)" and "cuisine" in rec.columns:
             rec = rec[rec["cuisine"] == chosen_cuisine]
         if "pairing_quality" in rec.columns:
@@ -751,28 +746,17 @@ elif module == "Parowanie wina z jedzeniem":
             st.warning("Brak rekomendacji spełniających kryteria.")
         else:
             st.success(f"Znaleziono **{rec.shape[0]}** rekomendacji.")
-            st.dataframe(
-                rec[
-                    [c for c in [
-                        "food_item",
-                        "cuisine",
-                        "wine_type",
-                        "wine_category",
-                        "pairing_quality",
-                        "quality_label",
-                        "description"
-                    ] if c in rec.columns]
-                ].head(20),
-                use_container_width=True
-            )
+            rec_cols = [c for c in ["food_item", "cuisine", "wine_type", "wine_category", "pairing_quality", "quality_label", "description"] if c in rec.columns]
+            st.dataframe(rec[rec_cols].head(20), use_container_width=True)
     else:
         st.info("Wpisz fragment nazwy dania, aby zobaczyć rekomendacje.")
 
 # =========================================================
-# 3. NAJLEPSZE DOPASOWANIA (kraj + jedzenie)
+# 3. NAJLEPSZE DOPASOWANIA (kraj + jedzenie) + sortowanie w kodzie
 # =========================================================
 elif module == "Najlepsze dopasowania (kraj + jedzenie)":
     st.subheader("🌍🍽️ Najlepsze dopasowania: kraj + jedzenie")
+    st.caption("Uwaga: jeśli `pairing_quality` ma same 5, sortowanie po tej kolumnie nie zmieni widoku — użyj innej kolumny sortowania.")
 
     if pairings_df is None:
         st.error(
@@ -784,26 +768,25 @@ elif module == "Najlepsze dopasowania (kraj + jedzenie)":
     dfp = pairings_df.copy()
 
     st.markdown(
-        "Wybierz **kraj (kuchnię)** oraz **rodzaj jedzenia** lub **konkretne danie**, "
+        "Wybierz **kraj/kuchnię** (`cuisine`) oraz **jedzenie** (kategoria lub nazwa), "
         "aby zobaczyć najlepiej dopasowane wina."
     )
 
+    # --- wybory
     col_a, col_b, col_c = st.columns(3)
 
     with col_a:
         cuisine_sel = st.selectbox(
             "🌍 Wybierz kuchnię / kraj:",
-            options=["(dowolna)"] + sorted(dfp["cuisine"].dropna().unique().tolist()),
-            key="best_cuisine"
+            options=["(dowolna)"] + (sorted(dfp["cuisine"].dropna().unique().tolist()) if "cuisine" in dfp.columns else []),
+            key="best_cuisine",
         )
-
     with col_b:
         food_cat_sel = st.selectbox(
             "🍽️ Wybierz kategorię jedzenia:",
-            options=["(dowolna)"] + sorted(dfp["food_category"].dropna().unique().tolist()),
-            key="best_food_cat"
+            options=["(dowolna)"] + (sorted(dfp["food_category"].dropna().unique().tolist()) if "food_category" in dfp.columns else []),
+            key="best_food_cat",
         )
-
     with col_c:
         if "pairing_quality" in dfp.columns:
             pq_min = int(np.nanmin(dfp["pairing_quality"]))
@@ -817,7 +800,7 @@ elif module == "Najlepsze dopasowania (kraj + jedzenie)":
             max_value=pq_max,
             value=pq_min,
             step=1,
-            key="best_min_pq"
+            key="best_min_pq",
         )
 
     st.divider()
@@ -825,49 +808,56 @@ elif module == "Najlepsze dopasowania (kraj + jedzenie)":
     food_text = st.text_input(
         "🔎 (Opcjonalnie) Wpisz nazwę dania:",
         placeholder="np. pizza, steak, pasta, salmon...",
-        key="best_food_text"
+        key="best_food_text",
     )
 
+    # --- filtracja
     filt = dfp.copy()
 
     if cuisine_sel != "(dowolna)" and "cuisine" in filt.columns:
         filt = filt[filt["cuisine"] == cuisine_sel]
-
     if food_cat_sel != "(dowolna)" and "food_category" in filt.columns:
         filt = filt[filt["food_category"] == food_cat_sel]
-
     if food_text.strip() and "food_item" in filt.columns:
-        filt = filt[filt["food_item"].str.contains(food_text, case=False, na=False)]
-
+        filt = filt[filt["food_item"].astype(str).str.contains(food_text, case=False, na=False)]
     if "pairing_quality" in filt.columns:
         filt = filt[filt["pairing_quality"].fillna(-999) >= min_pair_quality]
 
     st.markdown(f"### ✅ Znaleziono **{filt.shape[0]}** dopasowań")
-
     if filt.empty:
         st.warning("Brak dopasowań dla wybranych kryteriów.")
         st.stop()
 
-    top_results = filt.sort_values(by="pairing_quality", ascending=False).head(20) if "pairing_quality" in filt.columns else filt.head(20)
+    # --- wybór sortowania w kodzie (żeby NIE resetowało się jak w UI)
+    st.markdown("### 🔃 Sortowanie wyników")
+    sort_candidates = [c for c in ["pairing_quality", "wine_type", "wine_category", "food_item", "cuisine", "food_category"] if c in filt.columns]
+    sort_col = st.selectbox("Sortuj po kolumnie:", options=sort_candidates, index=0, key="best_sort_col")
+    sort_desc = st.checkbox("Malejąco", value=True, key="best_sort_desc")
 
-    cols_to_show = [c for c in [
-        "food_item",
-        "food_category",
-        "cuisine",
-        "wine_type",
-        "wine_category",
-        "pairing_quality",
-        "quality_label",
-        "description"
-    ] if c in top_results.columns]
+    # TOP N
+    top_n = st.slider("Ile wyników pokazać (TOP N):", 5, 100, 20, 5, key="best_top_n")
 
-    st.dataframe(
-        top_results[cols_to_show],
-        use_container_width=True
-    )
+    # sort + tie-break (żeby było stabilnie)
+    by_cols = [sort_col]
+    asc_list = [not sort_desc]
+    if "pairing_quality" in filt.columns and sort_col != "pairing_quality":
+        by_cols.append("pairing_quality")
+        asc_list.append(False)
+    if "wine_type" in filt.columns and "wine_type" not in by_cols:
+        by_cols.append("wine_type")
+        asc_list.append(True)
 
+    top_results = filt.sort_values(by=by_cols, ascending=asc_list).head(int(top_n)).copy()
+
+    # ładny indeks 1..N
+    top_results = top_results.reset_index(drop=True)
+    top_results.index = top_results.index + 1
+
+    cols_to_show = [c for c in ["food_item", "food_category", "cuisine", "wine_type", "wine_category", "pairing_quality", "quality_label", "description"] if c in top_results.columns]
+    st.dataframe(top_results[cols_to_show], use_container_width=True)
+
+    # --- szybkie wnioski
     st.markdown("### 📊 Szybkie wnioski")
-
     col_s1, col_s2 = st.columns(2)
 
     with col_s1:
@@ -878,9 +868,5 @@ elif module == "Najlepsze dopasowania (kraj + jedzenie)":
     with col_s2:
         if "wine_type" in top_results.columns and "pairing_quality" in top_results.columns:
             st.write("**Średnia jakość parowania wg typu wina:**")
-            mean_by_wine = (
-                top_results.groupby("wine_type")["pairing_quality"]
-                .mean()
-                .sort_values(ascending=False)
-            )
+            mean_by_wine = top_results.groupby("wine_type")["pairing_quality"].mean().sort_values(ascending=False)
             st.bar_chart(mean_by_wine)
