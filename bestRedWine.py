@@ -10,8 +10,8 @@ from sklearn.metrics import mean_absolute_error, r2_score
 
 st.set_page_config(page_title="Wine Data App", page_icon="🍷", layout="wide")
 
-PAIRINGS_PATH = "data/wine_food_pairings.csv"
-QUALITY_PATH = "data/winequality-red.csv"
+PAIRINGS_PATH = "wine_food_pairings.csv"
+QUALITY_PATH = "winequality-red.csv"
 
 
 @st.cache_data(show_spinner=False)
