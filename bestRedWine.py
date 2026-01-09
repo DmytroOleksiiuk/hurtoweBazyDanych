@@ -59,6 +59,7 @@ def load_wine_food_pairings(path: str = PAIRINGS_PATH) -> pd.DataFrame:
 
     return df
 
+
 # ---------------------------------------------------------
 # Podstawowa eksploracja danych (EDA)
 # ---------------------------------------------------------
@@ -106,6 +107,7 @@ def basic_eda(df: pd.DataFrame, title: str):
         with st.expander("Pokaż przykładowe duplikaty"):
             st.dataframe(df[df.duplicated(keep=False)].head(50), use_container_width=True)
 
+
 # ---------------------------------------------------------
 # Szybkie statystyki (po filtrach)
 # ---------------------------------------------------------
@@ -128,6 +130,7 @@ def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie
         "max": [df[c].max() for c in cols_to_use],
     })
     st.dataframe(stats, hide_index=True, use_container_width=True)
+
 
 # ---------------------------------------------------------
 # Próba wczytania danych + komunikaty błędów
@@ -268,10 +271,10 @@ elif module == "Analiza jakości wina":
     )
 
     # =====================================================
-    # NOWE: Rozkłady i porównania (panel)
+    # Rozkłady i porównania (panel)
     # =====================================================
     st.markdown("## 📈 Rozkłady i porównania (winequality-red)")
-    st.caption("Panel działa na danych **po filtrach** (powyżej). Jeśli po filtrach jest 0 rekordów – zmień suwaki.")
+    st.caption("Panel działa na danych **po filtrach** (powyżej).")
 
     if filtered.empty:
         st.warning("Brak danych po filtrach – nie mogę narysować rozkładów.")
@@ -313,9 +316,9 @@ elif module == "Analiza jakości wina":
         st.markdown("### Porównanie rozkładów dla 2 grup jakości")
 
         if compare_mode == "quality ≤ X vs quality > X":
-            # X w zakresie jakości dostępnej w (filtered)
             q_min = int(filtered["quality"].min())
             q_max = int(filtered["quality"].max())
+
             if q_min == q_max:
                 st.info("Po filtrach masz tylko jedną wartość quality – porównanie progowe nie ma sensu.")
             else:
@@ -327,13 +330,13 @@ elif module == "Analiza jakości wina":
                     step=1,
                     key="threshold_x"
                 )
+
                 g1 = filtered[filtered["quality"] <= x][dist_feature].dropna()
                 g2 = filtered[filtered["quality"] > x][dist_feature].dropna()
 
                 st.write(f"Grupa 1 (quality ≤ {x}): **{len(g1)}** rekordów")
                 st.write(f"Grupa 2 (quality > {x}): **{len(g2)}** rekordów")
 
-                # Overlay histogram
                 fig_ch, ax_ch = plt.subplots()
                 ax_ch.hist(g1, bins=30, alpha=0.6, label=f"quality ≤ {x}", edgecolor="black")
                 ax_ch.hist(g2, bins=30, alpha=0.6, label=f"quality > {x}", edgecolor="black")
@@ -343,14 +346,12 @@ elif module == "Analiza jakości wina":
                 ax_ch.legend()
                 st.pyplot(fig_ch)
 
-                # Side-by-side boxplot
                 fig_cb, ax_cb = plt.subplots()
                 ax_cb.boxplot([g1, g2], labels=[f"≤ {x}", f"> {x}"])
                 ax_cb.set_title(f"Porównanie boxplotów: {dist_feature}")
                 ax_cb.set_ylabel(dist_feature)
                 st.pyplot(fig_cb)
 
-                # Szybkie staty porównawcze (2–3)
                 comp_stats = pd.DataFrame({
                     "grupa": [f"quality ≤ {x}", f"quality > {x}"],
                     "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
@@ -358,11 +359,12 @@ elif module == "Analiza jakości wina":
                     "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
                     "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
                 })
-                st.markdown("#### 2–3 szybkie statystyki (porównanie)")
+                st.markdown("#### Szybkie statystyki (porównanie)")
                 st.dataframe(comp_stats, hide_index=True, use_container_width=True)
 
-        else:  # "quality = A vs quality = B"
+        else:
             qualities = sorted(filtered["quality"].dropna().unique().tolist())
+
             if len(qualities) < 2:
                 st.info("Po filtrach masz mniej niż 2 różne wartości quality – wybierz szersze filtry.")
             else:
@@ -370,7 +372,6 @@ elif module == "Analiza jakości wina":
                 with col_a:
                     q_a = st.selectbox("Wybierz jakość A:", qualities, index=0, key="qa")
                 with col_b:
-                    # domyślnie inna wartość niż A, jeśli możliwe
                     default_idx = 1 if len(qualities) > 1 else 0
                     q_b = st.selectbox("Wybierz jakość B:", qualities, index=default_idx, key="qb")
 
@@ -405,14 +406,88 @@ elif module == "Analiza jakości wina":
                         "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
                         "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
                     })
-                    st.markdown("#### 2–3 szybkie statystyki (porównanie)")
+                    st.markdown("#### Szybkie statystyki (porównanie)")
                     st.dataframe(comp_stats, hide_index=True, use_container_width=True)
+
+    # =====================================================
+    # NOWE: Wykresy 3D – zależności między cechami
+    # =====================================================
+    st.markdown("## 🧊 Wykresy 3D – zależności między cechami")
+    st.caption("Wykres 3D działa na danych **po filtrach**. Wybierz osie X/Y/Z i sposób kolorowania.")
+
+    if filtered.empty:
+        st.warning("Brak danych po filtrach – nie mogę narysować wykresu 3D.")
+    else:
+        numeric_features = [c for c in df.columns if c != "quality"]
+
+        col3d_1, col3d_2, col3d_3, col3d_4 = st.columns(4)
+
+        with col3d_1:
+            x_3d = st.selectbox(
+                "Oś X:",
+                numeric_features,
+                index=numeric_features.index("alcohol") if "alcohol" in numeric_features else 0,
+                key="x3d"
+            )
+
+        with col3d_2:
+            y_3d = st.selectbox(
+                "Oś Y:",
+                numeric_features,
+                index=numeric_features.index("volatile acidity") if "volatile acidity" in numeric_features else 1,
+                key="y3d"
+            )
+
+        with col3d_3:
+            z_3d = st.selectbox(
+                "Oś Z:",
+                numeric_features,
+                index=numeric_features.index("sulphates") if "sulphates" in numeric_features else 2,
+                key="z3d"
+            )
+
+        with col3d_4:
+            color_mode = st.selectbox(
+                "Kolorowanie punktów:",
+                options=["quality", x_3d, y_3d, z_3d],
+                key="color3d"
+            )
+
+        plot_df = filtered[[x_3d, y_3d, z_3d, color_mode]].dropna()
+
+        if plot_df.empty:
+            st.warning("Brak danych do narysowania wykresu 3D (sprawdź filtry).")
+        else:
+            from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+            fig = plt.figure(figsize=(8, 6))
+            ax = fig.add_subplot(111, projection="3d")
+
+            sc = ax.scatter(
+                plot_df[x_3d],
+                plot_df[y_3d],
+                plot_df[z_3d],
+                c=plot_df[color_mode],
+                cmap="viridis",
+                alpha=0.7
+            )
+
+            ax.set_xlabel(x_3d)
+            ax.set_ylabel(y_3d)
+            ax.set_zlabel(z_3d)
+            ax.set_title(f"3D Scatter: {x_3d} vs {y_3d} vs {z_3d}")
+
+            cbar = fig.colorbar(sc, ax=ax, pad=0.1)
+            cbar.set_label(color_mode)
+
+            st.pyplot(fig)
 
     # -------------------------
     # Korelacja cech
     # -------------------------
     st.markdown("### Korelacje między cechami")
     corr = df.corr(numeric_only=True)
+
     fig_corr, ax_corr = plt.subplots(figsize=(10, 6))
     sns.heatmap(corr, annot=False, cmap="coolwarm", ax=ax_corr)
     ax_corr.set_title("Macierz korelacji")
@@ -422,6 +497,7 @@ elif module == "Analiza jakości wina":
     # Scatter: wybrana cecha vs jakość
     # -------------------------
     st.markdown("### Zależność cechy od jakości")
+
     x_feature = st.selectbox(
         "Wybierz cechę (oś X):",
         feature_cols,
