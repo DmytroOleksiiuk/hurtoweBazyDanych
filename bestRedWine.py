@@ -189,7 +189,6 @@ if module == "Eksploracja danych":
 # =========================================================
 elif module == "Analiza jakości wina":
     st.subheader("📊 Analiza jakości czerwonych win")
-
     if wine_quality_df is None:
         st.error(
             "Nie udało się wczytać `winequality-red.csv`.\n\n"
@@ -197,16 +196,13 @@ elif module == "Analiza jakości wina":
             "Upewnij się, że plik znajduje się w tym samym katalogu co `app.py` / `bestRedWine.py`."
         )
         st.stop()
-
     df = wine_quality_df.copy()
-
     # -------------------------
     # Podstawowe informacje
     # -------------------------
     st.markdown("### Podgląd danych")
     st.write("Pierwsze wiersze datasetu:")
     st.dataframe(df.head())
-
     with st.expander("Informacje o datasetcie"):
         col1, col2 = st.columns(2)
         with col1:
@@ -217,8 +213,7 @@ elif module == "Analiza jakości wina":
         with col2:
             st.write("**Podstawowe statystyki opisowe:**")
             st.write(df.describe().T)
-
- # -------------------------
+# -------------------------
 # Filtrowanie: quality + wybrana cecha (dwa suwaki)
 # -------------------------
 st.markdown("### Filtrowanie: quality + wybrana cecha")
