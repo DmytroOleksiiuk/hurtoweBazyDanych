@@ -158,7 +158,8 @@ module = st.sidebar.radio(
     options=[
         "Eksploracja danych",
         "Analiza jakości wina",
-        "Parowanie wina z jedzeniem"
+        "Parowanie wina z jedzeniem",
+        "Najlepsze dopasowania (kraj + jedzenie)"
     ]
 )
 
@@ -766,3 +767,120 @@ elif module == "Parowanie wina z jedzeniem":
             )
     else:
         st.info("Wpisz fragment nazwy dania, aby zobaczyć rekomendacje.")
+
+# =========================================================
+# 3. NAJLEPSZE DOPASOWANIA (kraj + jedzenie)
+# =========================================================
+elif module == "Najlepsze dopasowania (kraj + jedzenie)":
+    st.subheader("🌍🍽️ Najlepsze dopasowania: kraj + jedzenie")
+
+    if pairings_df is None:
+        st.error(
+            "Nie udało się wczytać `wine_food_pairings.csv`.\n\n"
+            f"Komunikat błędu:\n`{pairings_error}`"
+        )
+        st.stop()
+
+    dfp = pairings_df.copy()
+
+    st.markdown(
+        "Wybierz **kraj (kuchnię)** oraz **rodzaj jedzenia** lub **konkretne danie**, "
+        "aby zobaczyć najlepiej dopasowane wina."
+    )
+
+    col_a, col_b, col_c = st.columns(3)
+
+    with col_a:
+        cuisine_sel = st.selectbox(
+            "🌍 Wybierz kuchnię / kraj:",
+            options=["(dowolna)"] + sorted(dfp["cuisine"].dropna().unique().tolist()),
+            key="best_cuisine"
+        )
+
+    with col_b:
+        food_cat_sel = st.selectbox(
+            "🍽️ Wybierz kategorię jedzenia:",
+            options=["(dowolna)"] + sorted(dfp["food_category"].dropna().unique().tolist()),
+            key="best_food_cat"
+        )
+
+    with col_c:
+        if "pairing_quality" in dfp.columns:
+            pq_min = int(np.nanmin(dfp["pairing_quality"]))
+            pq_max = int(np.nanmax(dfp["pairing_quality"]))
+        else:
+            pq_min, pq_max = 1, 5
+
+        min_pair_quality = st.slider(
+            "⭐ Minimalna jakość parowania:",
+            min_value=pq_min,
+            max_value=pq_max,
+            value=pq_min,
+            step=1,
+            key="best_min_pq"
+        )
+
+    st.divider()
+
+    food_text = st.text_input(
+        "🔎 (Opcjonalnie) Wpisz nazwę dania:",
+        placeholder="np. pizza, steak, pasta, salmon...",
+        key="best_food_text"
+    )
+
+    filt = dfp.copy()
+
+    if cuisine_sel != "(dowolna)" and "cuisine" in filt.columns:
+        filt = filt[filt["cuisine"] == cuisine_sel]
+
+    if food_cat_sel != "(dowolna)" and "food_category" in filt.columns:
+        filt = filt[filt["food_category"] == food_cat_sel]
+
+    if food_text.strip() and "food_item" in filt.columns:
+        filt = filt[filt["food_item"].str.contains(food_text, case=False, na=False)]
+
+    if "pairing_quality" in filt.columns:
+        filt = filt[filt["pairing_quality"].fillna(-999) >= min_pair_quality]
+
+    st.markdown(f"### ✅ Znaleziono **{filt.shape[0]}** dopasowań")
+
+    if filt.empty:
+        st.warning("Brak dopasowań dla wybranych kryteriów.")
+        st.stop()
+
+    top_results = filt.sort_values(by="pairing_quality", ascending=False).head(20) if "pairing_quality" in filt.columns else filt.head(20)
+
+    cols_to_show = [c for c in [
+        "food_item",
+        "food_category",
+        "cuisine",
+        "wine_type",
+        "wine_category",
+        "pairing_quality",
+        "quality_label",
+        "description"
+    ] if c in top_results.columns]
+
+    st.dataframe(
+        top_results[cols_to_show],
+        use_container_width=True
+    )
+
+    st.markdown("### 📊 Szybkie wnioski")
+
+    col_s1, col_s2 = st.columns(2)
+
+    with col_s1:
+        if "wine_type" in top_results.columns:
+            st.write("**Top typy win (liczba rekomendacji):**")
+            st.bar_chart(top_results["wine_type"].value_counts())
+
+    with col_s2:
+        if "wine_type" in top_results.columns and "pairing_quality" in top_results.columns:
+            st.write("**Średnia jakość parowania wg typu wina:**")
+            mean_by_wine = (
+                top_results.groupby("wine_type")["pairing_quality"]
+                .mean()
+                .sort_values(ascending=False)
+            )
+            st.bar_chart(mean_by_wine)
