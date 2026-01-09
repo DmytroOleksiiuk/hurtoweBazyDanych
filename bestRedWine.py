@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -297,7 +298,6 @@ elif module == "Analiza jakości wina":
                 key="compare_mode"
             )
 
-        # Histogram cechy
         st.markdown("### Histogram cechy")
         fig_h, ax_h = plt.subplots()
         ax_h.hist(filtered[dist_feature].dropna(), bins=30, edgecolor="black")
@@ -306,7 +306,6 @@ elif module == "Analiza jakości wina":
         ax_h.set_title(f"Histogram: {dist_feature}")
         st.pyplot(fig_h)
 
-        # Boxplot cechy
         st.markdown("### Boxplot cechy")
         fig_b, ax_b = plt.subplots()
         ax_b.boxplot(filtered[dist_feature].dropna(), vert=True, labels=[dist_feature])
@@ -410,77 +409,61 @@ elif module == "Analiza jakości wina":
                     st.dataframe(comp_stats, hide_index=True, use_container_width=True)
 
     # =====================================================
-    # NOWE: Wykresy 3D – zależności między cechami
+    # INTERAKTYWNE WYKRESY 3D (PLOTLY)
     # =====================================================
-    st.markdown("## 🧊 Wykresy 3D – zależności między cechami")
-    st.caption("Wykres 3D działa na danych **po filtrach**. Wybierz osie X/Y/Z i sposób kolorowania.")
+    st.markdown("## 🧊 Interaktywne wykresy 3D – zależności między cechami")
+    st.caption("Możesz obracać, przybliżać i eksplorować punkty myszką.")
 
     if filtered.empty:
         st.warning("Brak danych po filtrach – nie mogę narysować wykresu 3D.")
     else:
         numeric_features = [c for c in df.columns if c != "quality"]
 
-        col3d_1, col3d_2, col3d_3, col3d_4 = st.columns(4)
+        c3d_1, c3d_2, c3d_3, c3d_4 = st.columns(4)
 
-        with col3d_1:
+        with c3d_1:
             x_3d = st.selectbox(
-                "Oś X:",
+                "Oś X",
                 numeric_features,
                 index=numeric_features.index("alcohol") if "alcohol" in numeric_features else 0,
-                key="x3d"
+                key="px3d_x"
             )
-
-        with col3d_2:
+        with c3d_2:
             y_3d = st.selectbox(
-                "Oś Y:",
+                "Oś Y",
                 numeric_features,
                 index=numeric_features.index("volatile acidity") if "volatile acidity" in numeric_features else 1,
-                key="y3d"
+                key="px3d_y"
             )
-
-        with col3d_3:
+        with c3d_3:
             z_3d = st.selectbox(
-                "Oś Z:",
+                "Oś Z",
                 numeric_features,
                 index=numeric_features.index("sulphates") if "sulphates" in numeric_features else 2,
-                key="z3d"
+                key="px3d_z"
+            )
+        with c3d_4:
+            color_3d = st.selectbox(
+                "Kolorowanie punktów",
+                ["quality"] + numeric_features,
+                key="px3d_color"
             )
 
-        with col3d_4:
-            color_mode = st.selectbox(
-                "Kolorowanie punktów:",
-                options=["quality", x_3d, y_3d, z_3d],
-                key="color3d"
-            )
-
-        plot_df = filtered[[x_3d, y_3d, z_3d, color_mode]].dropna()
-
+        plot_df = filtered[[x_3d, y_3d, z_3d, color_3d]].dropna()
         if plot_df.empty:
-            st.warning("Brak danych do narysowania wykresu 3D (sprawdź filtry).")
+            st.warning("Brak danych do wizualizacji 3D.")
         else:
-            from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-
-            fig = plt.figure(figsize=(8, 6))
-            ax = fig.add_subplot(111, projection="3d")
-
-            sc = ax.scatter(
-                plot_df[x_3d],
-                plot_df[y_3d],
-                plot_df[z_3d],
-                c=plot_df[color_mode],
-                cmap="viridis",
-                alpha=0.7
+            fig_3d = px.scatter_3d(
+                plot_df,
+                x=x_3d,
+                y=y_3d,
+                z=z_3d,
+                color=color_3d,
+                opacity=0.7,
+                title=f"Interaktywny wykres 3D: {x_3d} vs {y_3d} vs {z_3d}",
             )
-
-            ax.set_xlabel(x_3d)
-            ax.set_ylabel(y_3d)
-            ax.set_zlabel(z_3d)
-            ax.set_title(f"3D Scatter: {x_3d} vs {y_3d} vs {z_3d}")
-
-            cbar = fig.colorbar(sc, ax=ax, pad=0.1)
-            cbar.set_label(color_mode)
-
-            st.pyplot(fig)
+            fig_3d.update_layout(height=650, margin=dict(l=0, r=0, b=0, t=50))
+            st.plotly_chart(fig_3d, use_container_width=True)
 
     # -------------------------
     # Korelacja cech
@@ -634,9 +617,6 @@ elif module == "Parowanie wina z jedzeniem":
             if "quality_label" in dfp.columns:
                 st.write("quality_label:", dfp["quality_label"].unique())
 
-    # -------------------------
-    # Filtrowanie parowań
-    # -------------------------
     st.markdown("### Filtrowanie rekomendacji")
 
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
@@ -647,21 +627,18 @@ elif module == "Parowanie wina z jedzeniem":
             options=sorted(dfp["wine_type"].dropna().unique()),
             default=[]
         )
-
     with col_f2:
         food_cat_sel = st.multiselect(
             "Kategoria jedzenia (`food_category`):",
             options=sorted(dfp["food_category"].dropna().unique()),
             default=[]
         )
-
     with col_f3:
         cuisine_sel = st.multiselect(
             "Kuchnia (`cuisine`):",
             options=sorted(dfp["cuisine"].dropna().unique()),
             default=[]
         )
-
     with col_f4:
         min_pair_quality = int(np.nanmin(dfp["pairing_quality"])) if "pairing_quality" in dfp.columns else 1
         max_pair_quality = int(np.nanmax(dfp["pairing_quality"])) if "pairing_quality" in dfp.columns else 5
@@ -727,9 +704,6 @@ elif module == "Parowanie wina z jedzeniem":
         use_container_width=True
     )
 
-    # -------------------------
-    # Podsumowanie jakości parowań
-    # -------------------------
     st.markdown("### Podsumowanie jakości parowań")
 
     col_s1, col_s2 = st.columns(2)
@@ -749,9 +723,6 @@ elif module == "Parowanie wina z jedzeniem":
             )
             st.bar_chart(mean_quality_by_wine)
 
-    # -------------------------
-    # Rekomendacja dla konkretnego dania
-    # -------------------------
     st.markdown("### 🔍 Znajdź rekomendacje dla konkretnego dania")
 
     col_r1, col_r2 = st.columns(2)
