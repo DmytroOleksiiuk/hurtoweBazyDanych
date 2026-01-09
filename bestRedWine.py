@@ -187,8 +187,11 @@ if module == "Eksploracja danych":
 # =========================================================
 # 1. ANALIZA JAKOŚCI WINA (winequality-red.csv)
 # =========================================================
-elif module == "Analiza jakości wina":
+    elif module == "Analiza jakości wina":
     st.subheader("📊 Analiza jakości czerwonych win")
+
+    st.markdown("### Rozkład jakości wina")
+
     if wine_quality_df is None:
         st.error(
             "Nie udało się wczytać `winequality-red.csv`.\n\n"
