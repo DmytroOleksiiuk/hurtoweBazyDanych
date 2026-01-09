@@ -32,7 +32,7 @@ WINE_QUALITY_PATH = os.path.join(BASE_DIR, "winequality-red.csv")
 PAIRINGS_PATH = os.path.join(BASE_DIR, "wine_food_pairings.csv")
 
 # ---------------------------------------------------------
-# Funkcje wczytywania danych (Twoje + bezpieczniejsze)
+# Funkcje wczytywania danych
 # ---------------------------------------------------------
 @st.cache_data
 def load_wine_quality(path: str = WINE_QUALITY_PATH) -> pd.DataFrame:
@@ -49,17 +49,18 @@ def load_wine_quality(path: str = WINE_QUALITY_PATH) -> pd.DataFrame:
 @st.cache_data
 def load_wine_food_pairings(path: str = PAIRINGS_PATH) -> pd.DataFrame:
     df = pd.read_csv(path)
-    # lekkie czyszczenie
+
     for col in ["wine_type", "wine_category", "food_item", "food_category", "cuisine", "quality_label", "description"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
+
     if "pairing_quality" in df.columns:
         df["pairing_quality"] = pd.to_numeric(df["pairing_quality"], errors="coerce")
+
     return df
 
-
 # ---------------------------------------------------------
-# Podstawowa eksploracja danych (EDA) - wymagania z zadania
+# Podstawowa eksploracja danych (EDA)
 # ---------------------------------------------------------
 def basic_eda(df: pd.DataFrame, title: str):
     st.subheader(title)
@@ -105,7 +106,9 @@ def basic_eda(df: pd.DataFrame, title: str):
         with st.expander("Pokaż przykładowe duplikaty"):
             st.dataframe(df[df.duplicated(keep=False)].head(50), use_container_width=True)
 
-
+# ---------------------------------------------------------
+# Szybkie statystyki (po filtrach)
+# ---------------------------------------------------------
 def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie statystyki"):
     st.markdown(f"### {title}")
     if df.empty:
@@ -125,7 +128,6 @@ def quick_stats(df: pd.DataFrame, numeric_cols: list[str], title: str = "Szybkie
         "max": [df[c].max() for c in cols_to_use],
     })
     st.dataframe(stats, hide_index=True, use_container_width=True)
-
 
 # ---------------------------------------------------------
 # Próba wczytania danych + komunikaty błędów
@@ -157,7 +159,7 @@ module = st.sidebar.radio(
 )
 
 # =========================================================
-# 0. EKSPLORACJA DANYCH (EDA) - dla obu datasetów
+# 0. EKSPLORACJA DANYCH (EDA)
 # =========================================================
 if module == "Eksploracja danych":
     st.header("🔎 Podstawowa eksploracja danych (EDA)")
@@ -165,8 +167,7 @@ if module == "Eksploracja danych":
     if wine_quality_df is None:
         st.error(
             "Nie udało się wczytać `winequality-red.csv`.\n\n"
-            f"Komunikat błędu:\n`{wine_quality_error}`\n\n"
-            "Upewnij się, że plik jest w tym samym katalogu co plik aplikacji."
+            f"Komunikat błędu:\n`{wine_quality_error}`"
         )
     else:
         basic_eda(wine_quality_df, "🧪 winequality-red.csv")
@@ -176,12 +177,10 @@ if module == "Eksploracja danych":
     if pairings_df is None:
         st.error(
             "Nie udało się wczytać `wine_food_pairings.csv`.\n\n"
-            f"Komunikat błędu:\n`{pairings_error}`\n\n"
-            "Upewnij się, że plik jest w tym samym katalogu co plik aplikacji."
+            f"Komunikat błędu:\n`{pairings_error}`"
         )
     else:
         basic_eda(pairings_df, "🍽️ wine_food_pairings.csv")
-
 
 # =========================================================
 # 1. ANALIZA JAKOŚCI WINA (winequality-red.csv)
@@ -192,29 +191,27 @@ elif module == "Analiza jakości wina":
     if wine_quality_df is None:
         st.error(
             "Nie udało się wczytać `winequality-red.csv`.\n\n"
-            f"Komunikat błędu:\n`{wine_quality_error}`\n\n"
-            "Upewnij się, że plik znajduje się w tym samym katalogu co plik aplikacji."
+            f"Komunikat błędu:\n`{wine_quality_error}`"
         )
         st.stop()
 
     df = wine_quality_df.copy()
 
     # -------------------------
-    # Podstawowe informacje
+    # Podgląd danych
     # -------------------------
     st.markdown("### Podgląd danych")
-    st.write("Pierwsze wiersze datasetu:")
     st.dataframe(df.head(), use_container_width=True)
 
     with st.expander("Informacje o datasetcie"):
         col1, col2 = st.columns(2)
         with col1:
-            st.write("**Kształt (liczba rekordów, liczba kolumn):**")
+            st.write("**Kształt (rekordy, kolumny):**")
             st.write(df.shape)
             st.write("**Typy danych:**")
             st.write(df.dtypes)
         with col2:
-            st.write("**Podstawowe statystyki opisowe:**")
+            st.write("**Statystyki opisowe:**")
             st.write(df.describe().T)
 
     # -------------------------
@@ -235,10 +232,12 @@ elif module == "Analiza jakości wina":
 
     feature_cols = [c for c in df.columns if c != "quality"]
     default_feature = "alcohol" if "alcohol" in feature_cols else feature_cols[0]
+
     chosen_feature = st.selectbox(
         "Wybierz cechę do filtrowania:",
         feature_cols,
-        index=feature_cols.index(default_feature)
+        index=feature_cols.index(default_feature),
+        key="filter_feature"
     )
 
     f_min = float(df[chosen_feature].min())
@@ -249,6 +248,7 @@ elif module == "Analiza jakości wina":
         min_value=f_min,
         max_value=f_max,
         value=(f_min, f_max),
+        key="filter_feature_range"
     )
 
     filtered = df[
@@ -267,24 +267,152 @@ elif module == "Analiza jakości wina":
         title="Szybkie wnioski: quality + wybrana cecha"
     )
 
-    # -------------------------
-    # Rozkład jakości
-    # -------------------------
-    st.markdown("### Rozkład jakości wina")
+    # =====================================================
+    # NOWE: Rozkłady i porównania (panel)
+    # =====================================================
+    st.markdown("## 📈 Rozkłady i porównania (winequality-red)")
+    st.caption("Panel działa na danych **po filtrach** (powyżej). Jeśli po filtrach jest 0 rekordów – zmień suwaki.")
 
-    fig, ax = plt.subplots()
-    ax.hist(df["quality"], bins=range(min_q, max_q + 2), edgecolor="black")
-    ax.set_xlabel("Jakość (quality)")
-    ax.set_ylabel("Liczba próbek")
-    ax.set_title("Histogram ocen jakości wina")
-    st.pyplot(fig)
+    if filtered.empty:
+        st.warning("Brak danych po filtrach – nie mogę narysować rozkładów.")
+    else:
+        c1, c2 = st.columns([1, 1])
+
+        with c1:
+            dist_feature = st.selectbox(
+                "Wybierz cechę do analizy rozkładu:",
+                feature_cols,
+                index=feature_cols.index(default_feature),
+                key="dist_feature"
+            )
+
+        with c2:
+            compare_mode = st.radio(
+                "Tryb porównania (2 grupy jakości):",
+                options=["quality ≤ X vs quality > X", "quality = A vs quality = B"],
+                horizontal=True,
+                key="compare_mode"
+            )
+
+        # Histogram cechy
+        st.markdown("### Histogram cechy")
+        fig_h, ax_h = plt.subplots()
+        ax_h.hist(filtered[dist_feature].dropna(), bins=30, edgecolor="black")
+        ax_h.set_xlabel(dist_feature)
+        ax_h.set_ylabel("Liczba próbek")
+        ax_h.set_title(f"Histogram: {dist_feature}")
+        st.pyplot(fig_h)
+
+        # Boxplot cechy
+        st.markdown("### Boxplot cechy")
+        fig_b, ax_b = plt.subplots()
+        ax_b.boxplot(filtered[dist_feature].dropna(), vert=True, labels=[dist_feature])
+        ax_b.set_title(f"Boxplot: {dist_feature}")
+        st.pyplot(fig_b)
+
+        st.markdown("### Porównanie rozkładów dla 2 grup jakości")
+
+        if compare_mode == "quality ≤ X vs quality > X":
+            # X w zakresie jakości dostępnej w (filtered)
+            q_min = int(filtered["quality"].min())
+            q_max = int(filtered["quality"].max())
+            if q_min == q_max:
+                st.info("Po filtrach masz tylko jedną wartość quality – porównanie progowe nie ma sensu.")
+            else:
+                x = st.slider(
+                    "Wybierz próg X:",
+                    min_value=q_min,
+                    max_value=q_max - 1,
+                    value=min(q_min + 1, q_max - 1),
+                    step=1,
+                    key="threshold_x"
+                )
+                g1 = filtered[filtered["quality"] <= x][dist_feature].dropna()
+                g2 = filtered[filtered["quality"] > x][dist_feature].dropna()
+
+                st.write(f"Grupa 1 (quality ≤ {x}): **{len(g1)}** rekordów")
+                st.write(f"Grupa 2 (quality > {x}): **{len(g2)}** rekordów")
+
+                # Overlay histogram
+                fig_ch, ax_ch = plt.subplots()
+                ax_ch.hist(g1, bins=30, alpha=0.6, label=f"quality ≤ {x}", edgecolor="black")
+                ax_ch.hist(g2, bins=30, alpha=0.6, label=f"quality > {x}", edgecolor="black")
+                ax_ch.set_xlabel(dist_feature)
+                ax_ch.set_ylabel("Liczba próbek")
+                ax_ch.set_title(f"Porównanie histogramów: {dist_feature}")
+                ax_ch.legend()
+                st.pyplot(fig_ch)
+
+                # Side-by-side boxplot
+                fig_cb, ax_cb = plt.subplots()
+                ax_cb.boxplot([g1, g2], labels=[f"≤ {x}", f"> {x}"])
+                ax_cb.set_title(f"Porównanie boxplotów: {dist_feature}")
+                ax_cb.set_ylabel(dist_feature)
+                st.pyplot(fig_cb)
+
+                # Szybkie staty porównawcze (2–3)
+                comp_stats = pd.DataFrame({
+                    "grupa": [f"quality ≤ {x}", f"quality > {x}"],
+                    "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
+                    "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
+                    "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
+                    "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
+                })
+                st.markdown("#### 2–3 szybkie statystyki (porównanie)")
+                st.dataframe(comp_stats, hide_index=True, use_container_width=True)
+
+        else:  # "quality = A vs quality = B"
+            qualities = sorted(filtered["quality"].dropna().unique().tolist())
+            if len(qualities) < 2:
+                st.info("Po filtrach masz mniej niż 2 różne wartości quality – wybierz szersze filtry.")
+            else:
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    q_a = st.selectbox("Wybierz jakość A:", qualities, index=0, key="qa")
+                with col_b:
+                    # domyślnie inna wartość niż A, jeśli możliwe
+                    default_idx = 1 if len(qualities) > 1 else 0
+                    q_b = st.selectbox("Wybierz jakość B:", qualities, index=default_idx, key="qb")
+
+                if q_a == q_b:
+                    st.warning("Wybierz dwie różne wartości jakości (A != B).")
+                else:
+                    g1 = filtered[filtered["quality"] == q_a][dist_feature].dropna()
+                    g2 = filtered[filtered["quality"] == q_b][dist_feature].dropna()
+
+                    st.write(f"Grupa 1 (quality = {q_a}): **{len(g1)}** rekordów")
+                    st.write(f"Grupa 2 (quality = {q_b}): **{len(g2)}** rekordów")
+
+                    fig_ch, ax_ch = plt.subplots()
+                    ax_ch.hist(g1, bins=30, alpha=0.6, label=f"quality = {q_a}", edgecolor="black")
+                    ax_ch.hist(g2, bins=30, alpha=0.6, label=f"quality = {q_b}", edgecolor="black")
+                    ax_ch.set_xlabel(dist_feature)
+                    ax_ch.set_ylabel("Liczba próbek")
+                    ax_ch.set_title(f"Porównanie histogramów: {dist_feature}")
+                    ax_ch.legend()
+                    st.pyplot(fig_ch)
+
+                    fig_cb, ax_cb = plt.subplots()
+                    ax_cb.boxplot([g1, g2], labels=[f"{q_a}", f"{q_b}"])
+                    ax_cb.set_title(f"Porównanie boxplotów: {dist_feature}")
+                    ax_cb.set_ylabel(dist_feature)
+                    st.pyplot(fig_cb)
+
+                    comp_stats = pd.DataFrame({
+                        "grupa": [f"quality = {q_a}", f"quality = {q_b}"],
+                        "średnia": [g1.mean() if len(g1) else np.nan, g2.mean() if len(g2) else np.nan],
+                        "mediana": [g1.median() if len(g1) else np.nan, g2.median() if len(g2) else np.nan],
+                        "min": [g1.min() if len(g1) else np.nan, g2.min() if len(g2) else np.nan],
+                        "max": [g1.max() if len(g1) else np.nan, g2.max() if len(g2) else np.nan],
+                    })
+                    st.markdown("#### 2–3 szybkie statystyki (porównanie)")
+                    st.dataframe(comp_stats, hide_index=True, use_container_width=True)
 
     # -------------------------
     # Korelacja cech
     # -------------------------
     st.markdown("### Korelacje między cechami")
     corr = df.corr(numeric_only=True)
-
     fig_corr, ax_corr = plt.subplots(figsize=(10, 6))
     sns.heatmap(corr, annot=False, cmap="coolwarm", ax=ax_corr)
     ax_corr.set_title("Macierz korelacji")
@@ -294,7 +422,6 @@ elif module == "Analiza jakości wina":
     # Scatter: wybrana cecha vs jakość
     # -------------------------
     st.markdown("### Zależność cechy od jakości")
-
     x_feature = st.selectbox(
         "Wybierz cechę (oś X):",
         feature_cols,
@@ -406,16 +533,12 @@ elif module == "Parowanie wina z jedzeniem":
     if pairings_df is None:
         st.error(
             "Nie udało się wczytać `wine_food_pairings.csv`.\n\n"
-            f"Komunikat błędu:\n`{pairings_error}`\n\n"
-            "Upewnij się, że plik znajduje się w tym samym katalogu co plik aplikacji."
+            f"Komunikat błędu:\n`{pairings_error}`"
         )
         st.stop()
 
     dfp = pairings_df.copy()
 
-    # -------------------------
-    # Podgląd danych
-    # -------------------------
     st.markdown("### Podgląd danych")
     st.dataframe(dfp.head(), use_container_width=True)
 
@@ -481,7 +604,6 @@ elif module == "Parowanie wina z jedzeniem":
         filt = filt[filt["food_category"].isin(food_cat_sel)]
     if cuisine_sel:
         filt = filt[filt["cuisine"].isin(cuisine_sel)]
-
     if "pairing_quality" in filt.columns:
         filt = filt[filt["pairing_quality"].fillna(-999) >= pairing_quality_sel]
 
@@ -530,7 +652,7 @@ elif module == "Parowanie wina z jedzeniem":
     )
 
     # -------------------------
-    # Statystyki jakości parowań
+    # Podsumowanie jakości parowań
     # -------------------------
     st.markdown("### Podsumowanie jakości parowań")
 
@@ -552,7 +674,7 @@ elif module == "Parowanie wina z jedzeniem":
             st.bar_chart(mean_quality_by_wine)
 
     # -------------------------
-    # Prosta „rekomendacja” na podstawie wyboru użytkownika
+    # Rekomendacja dla konkretnego dania
     # -------------------------
     st.markdown("### 🔍 Znajdź rekomendacje dla konkretnego dania")
 
@@ -574,7 +696,6 @@ elif module == "Parowanie wina z jedzeniem":
         rec = dfp[dfp["food_item"].str.contains(chosen_food, case=False, na=False)]
         if chosen_cuisine != "(dowolna)" and "cuisine" in rec.columns:
             rec = rec[rec["cuisine"] == chosen_cuisine]
-
         if "pairing_quality" in rec.columns:
             rec = rec.sort_values(by="pairing_quality", ascending=False)
 
